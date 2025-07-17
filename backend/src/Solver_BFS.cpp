@@ -3,7 +3,21 @@
 #include <unordered_set>
 #include <unordered_map>
 #include <iostream>
+#include "Solver_BFS.h"
 
+// Dummy implementation (replace with real logic later)
+std::vector<std::string> SolverBFS::solve(const Cube& start) {
+    std::cout << "[SolverBFS] Starting BFS solve...\n";
+
+    std::vector<std::string> moves;
+    // Add BFS logic here
+    // For now, return empty solution
+    return moves;
+}
+
+Solver* getBFSSolver() {
+    return new SolverBFS();
+}
 class BFSSolver : public Solver {
 public:
     std::vector<std::string> solve(const Cube& start) override {
