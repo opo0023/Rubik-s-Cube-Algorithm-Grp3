@@ -1,3 +1,25 @@
+18 tokens (case‑sensitive):
+U  U'  U2
+R  R'  R2
+F  F'  F2
+D  D'  D2
+L  L'  L2
+B  B'  B2
+
+Letter = face (U/D/L/R/F/B).
+U = Up (top face)
+D = Down (bottom face)
+L = Left face
+R = Right face
+F = Front face (facing player)
+B = Back face (opposite the front)
+
+' = counter‑clockwise quarter turn.
+2 = half turn (180°).
+No suffix = clockwise quarter turn
+
+
+sample test cases 
 F R U' B D L'
 F' F R R'
-U U D' D
+U U D' D 
