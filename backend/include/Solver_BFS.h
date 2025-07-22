@@ -2,13 +2,18 @@
 #define SOLVER_BFS_H
 
 #include "Solver.h"
+#include <cstddef>
 
 class SolverBFS : public Solver {
 public:
-    std::vector<std::string> solve(const Cube& start) override;
+    explicit SolverBFS(std::size_t maxDepth = 20);
+    std::vector<std::string> solve(const Cube &start) override;
+
+private:
+    std::size_t maxDepth_;
 };
 
-// This function is used in main.cpp
-Solver* getBFSSolver();
 
-#endif
+Solver* getBFSSolver(std::size_t maxDepth = 20);
+
+#endif 

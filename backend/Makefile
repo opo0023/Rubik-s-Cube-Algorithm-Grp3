@@ -1,14 +1,18 @@
 CXX = g++
-CXXFLAGS = -std=c++17 -Iinclude
+CXXFLAGS = -std=c++17 -O2 -Wall -Wextra
+INC = -Iinclude
 
-SRC = src/Cube.cpp src/Solver_BFS.cpp src/Solver_AStar.cpp src/main.cpp
-OBJ = $(SRC:.cpp=.o)
+SRC_COMMON = src/Cube.cpp src/Solver_BFS.cpp src/Utilities.cpp
 
-rubik: $(OBJ)
-	$(CXX) $(CXXFLAGS) -o rubik $(OBJ)
+all: solver test_runner
 
-test: test/test_runner.cpp src/Cube.cpp src/Solver_BFS.cpp
-	$(CXX) $(CXXFLAGS) -o test_runner test/test_runner.cpp src/Cube.cpp src/Solver_BFS.cpp
+solver: $(SRC_COMMON) src/main.cpp
+	$(CXX) $(CXXFLAGS) $(INC) $^ -o $@
+
+test_runner: $(SRC_COMMON) test/test_runner.cpp
+	$(CXX) $(CXXFLAGS) $(INC) $^ -o $@
 
 clean:
-	rm -f rubik test_runner *.o
+	rm -f solver test_runner *.o
+
+.PHONY: all clean

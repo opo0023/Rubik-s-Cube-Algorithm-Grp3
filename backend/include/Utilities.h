@@ -2,10 +2,9 @@
 #define UTILITIES_H
 
 #include <string>
-#include <functional>
+#include <vector>
 
-namespace Utilities {
-    std::string hashCubeState(const std::string& state);
-}
+// Tiny helper to join strings for printing paths, etc.
+std::string join(const std::vector<std::string>& v, const std::string& sep = " ");
 
-#endif
+#endif 
