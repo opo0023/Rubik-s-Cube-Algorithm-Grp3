@@ -1,8 +1,13 @@
-CXX = g++
-CXXFLAGS = -std=c++17 -O2 -Wall -Wextra
-INC = -Iinclude
+# Makefile
+# Builds:
+#   solver       - interactive CLI (src/main.cpp)
+#   test_runner  - batch tester (test/test_runner.cpp)
 
-SRC_COMMON = src/Cube.cpp src/Solver_BFS.cpp src/Utilities.cpp
+CXX      = g++
+CXXFLAGS = -std=c++17 -O2 -Wall -Wextra
+INC      = -Iinclude
+
+SRC_COMMON = src/Cube.cpp src/Solver_BFS.cpp src/Solver_LBL.cpp src/Utilities.cpp src/Validator.cpp
 
 all: solver test_runner
 

@@ -1,0 +1,22 @@
+include/
+    Cube.h
+    Solver.h
+    Solver_BFS.h
+    Solver_LBL.h
+    Utilities.h
+    Validator.h
+src/
+    Cube.cpp
+    Solver_BFS.cpp
+    Solver_LBL.cpp        
+    Utilities.cpp
+    Validator.cpp
+    main.cpp
+test/
+    test_cases.txt
+    test_runner.cpp
+docs/
+    DESIGN_NOTES.md
+    RUBRIC_MAP.md
+    Diagrams.md
+Makefile
