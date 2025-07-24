@@ -26,9 +26,6 @@ static inline void apply(Cube &c, std::vector<std::string> &dst,
     for(const auto &m: seq){ c.move(m); dst.push_back(m); }
 }
 
-// tiny helpers to read stickers
-static char f(const Cube& c,int face,int idx) [[maybe_unused]];
-static char f(const Cube& c,int face,int idx){ return c.getState()[face][idx]; }
 
 // PHASE CHECKERS
 
