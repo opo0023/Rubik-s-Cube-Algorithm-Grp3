@@ -1,3 +1,133 @@
+ Add this to your Cube.h:
+
+cpp
+class Cube {
+private:
+    std::array<char, 9> up, down, left, right, front, back;
+    
+    // Helper methods for face rotation
+    void rotateFaceCW(std::array<char, 9>& face);
+    void rotateFaceCCW(std::array<char, 9>& face);
+    
+public:
+    // Constructor from scramble moves
+    Cube(const std::vector<std::string>& scrambleMoves = {});
+    
+    // Move methods
+    void U(); void U_prime();
+    void R(); void R_prime();
+    void F(); void F_prime();
+    void D(); void D_prime();
+    void L(); void L_prime();
+    void B(); void B_prime();
+    
+    // Your existing methods
+    void applyMove(const std::string& move);
+    bool isSolved() const;
+    std::string getStateHash() const;
+    
+    // New utility methods
+    void printCube() const;
+    bool operator==(const Cube& other) const;
+};
+
+cpp
+void Cube::rotateFaceCW(std::array<char, 9>& face) {
+    std::array<char, 9> temp = face;
+    face[0] = temp[6]; face[1] = temp[3]; face[2] = temp[0];
+    face[3] = temp[7]; face[4] = temp[4]; face[5] = temp[1];
+    face[6] = temp[8]; face[7] = temp[5]; face[8] = temp[2];
+}
+
+void Cube::rotateFaceCCW(std::array<char, 9>& face) {
+    std::array<char, 9> temp = face;
+    face[0] = temp[2]; face[1] = temp[5]; face[2] = temp[8];
+    face[3] = temp[1]; face[4] = temp[4]; face[5] = temp[7];
+    face[6] = temp[0]; face[7] = temp[3]; face[8] = temp[6];
+}
+
+void Cube::U() {
+    rotateFaceCW(up);
+    // Rotate adjacent edges
+    std::array<char, 3> temp = {front[0], front[1], front[2]};
+    front[0] = right[0]; front[1] = right[1]; front[2] = right[2];
+    right[0] = back[0]; right[1] = back[1]; right[2] = back[2];
+    back[0] = left[0]; back[1] = left[1]; back[2] = left[2];
+    left[0] = temp[0]; left[1] = temp[1]; left[2] = temp[2];
+}
+
+void Cube::U_prime() {
+    U(); U(); U(); // Three clockwise = one counter-clockwise
+}
+
+cpp
+bool Cube::operator==(const Cube& other) const {
+    return up == other.up && down == other.down && 
+           left == other.left && right == other.right &&
+           front == other.front && back == other.back;
+}
+
+bool Cube::isSolved() const {
+    auto checkFace = [](const std::array<char, 9>& face) {
+        char center = face[4];
+        return std::all_of(face.begin(), face.end(), 
+                          [center](char c) { return c == center; });
+    };
+    
+    return checkFace(up) && checkFace(down) && checkFace(left) && 
+           checkFace(right) && checkFace(front) && checkFace(back);
+}
+
+cpp
+void printCubeState(const Cube& cube);
+void printMoveSequence(const std::vector<std::string>& moves);
+
+void printCubeState(const Cube& cube) {
+    std::cout << "Current cube state:\n";
+    cube.printCube();
+    std::cout << "Solved: " << (cube.isSolved() ? "Yes" : "No") << "\n\n";
+}
+
+cpp
+// In main.cpp
+bool isValidMove(const std::string& move) {
+    static const std::set<std::string> validMoves = {
+        "U", "U'", "R", "R'", "F", "F'", 
+        "D", "D'", "L", "L'", "B", "B'"
+    };
+    return validMoves.count(move) > 0;
+}
+
+std::vector<std::string> parseInput(const std::string& input) {
+    std::istringstream iss(input);
+    std::vector<std::string> moves;
+    std::string move;
+    
+    while (iss >> move) {
+        if (!isValidMove(move)) {
+            throw std::invalid_argument("Invalid move: " + move + 
+                "\nValid moves: U, U', R, R', F, F', D, D', L, L', B, B'");
+        }
+        moves.push_back(move);
+    }
+    return moves;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 # Makefile for Rubik's Cube Solver Project
 # CSCE 4410 - Graph-Based Algorithm Design
 
