@@ -3,54 +3,60 @@
 
 #include <array>
 #include <string>
-#include <vector>
+#include <functional>
+#include <map>
 
-/*
- Faces (fixed order):
-   0 = U (Up), 1 = R (Right), 2 = F (Front),
-   3 = D (Down),4 = L (Left), 5 = B (Back)
-
-Each face is 3x3 stored row-major: indexes 0..8
-(face[0] top-left, face[8] bottom-right).
-
-Public API:
-  - move("U"), move("U'"), move("U2"), etc.
-  - applyMoves(vector<string>)
-  - isSolved()
-  - hash(): 54-char state string for hashing/printing
-*/
-
-class Cube {
-public:
-    using Face  = std::array<char, 9>;
-    using State = std::array<Face, 6>;
-
-    Cube();                     
-    explicit Cube(const State &s);
-
-    void move(const std::string &mv);
-    void applyMoves(const std::vector<std::string> &moves);
-
-    bool isSolved() const;
-    std::string hash() const;
-
-    const State& getState() const { return state_; }
-
+class RubiksCube {
 private:
-    State state_{};
+    std::array<char, 9> yellow, red, white, blue, green, orange;
 
-    // --- helpers: rotate a single face in place
-    void rotateFaceCW(int f);
-    void rotateFaceCCW(int f);
-    void rotateFace180(int f);
+    void rotateFaceCW(std::array<char, 9>& face);
+    void rotateFaceCCW(std::array<char, 9>& face);
 
-    // --- individual quarter/half turns
-    void U();  void Up();  void U2();
-    void R();  void Rp();  void R2();
-    void F();  void Fp();  void F2();
-    void D();  void Dp();  void D2();
-    void L();  void Lp();  void L2();
-    void B();  void Bp();  void B2();
+public:
+    // Constructor
+    RubiksCube();
+    
+    // Input methods
+    void inputCube();
+    
+    // Move methods
+    void frontClockwise();
+    void frontCClockwise();
+    void topClockwise();
+    void topCClockwise();
+    void rightClockwise();
+    void rightCClockwise();
+    void leftClockwise();
+    void leftCClockwise();
+    void backClockwise();
+    void backCClockwise();
+    void bottomClockwise();
+    void bottomCClockwise();
+    
+    // Apply move by string
+    void applyMove(const std::string& move);
+    
+    // State checking
+    bool isSolved() const;
+    std::string getStateHash() const;
+    
+    // Solving methods (from your original code)
+    void makeYellowCrossCenter();
+    void makeWhiteBottomCross();
+    void solveRemainingCube();
+    void solveCube();
+    
+    // Display
+    void printCube() const;
+    
+    // Comparison operators for STL containers
+    bool operator==(const RubiksCube& other) const;
+    bool operator<(const RubiksCube& other) const;
+    
+    // Move mapping
+    static std::map<std::string, std::function<void(RubiksCube&)>> moveActions;
+    static void initializeMoveActions();
 };
 
-#endif 
+#endif // CUBE_H

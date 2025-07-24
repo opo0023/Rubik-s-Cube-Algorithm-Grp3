@@ -1,79 +1,95 @@
-#include "Solver_BFS.h"
-#include "Cube.h"
+#include "Solver.h"
 #include <queue>
-#include <unordered_map>
 #include <unordered_set>
-#include <algorithm>
+#include <map>
+#include <iostream>
 
-/*
-BFS strategy:
-  - Node = cube state
-  - Edge = legal move
-  - Use queue for frontier, unordered_set for visited hash strings
-  - Store parent hash + move for path reconstruction
-  - Stop when isSolved() or maxDepth exceeded
-*/
-
-static const std::vector<std::string> ALL_MOVES = {
-    "U","U'","U2","R","R'","R2","F","F'","F2",
-    "D","D'","D2","L","L'","L2","B","B'","B2"
+// Define the static member
+const std::vector<std::string> Solver::MOVES = {
+    "F", "F'", "U", "U'", "R", "R'", "L", "L'", "B", "B'", "D", "D'"
 };
 
-SolverBFS::SolverBFS(std::size_t maxDepth) : maxDepth_(maxDepth) {}
-
-std::vector<std::string> SolverBFS::solve(const Cube &start){
-    if(start.isSolved()) return {}; // already solved
-
-    struct NodeInfo{
-        std::string parentHash;
-        std::string moveUsed; // move leading to this state
-        std::size_t depth;
-    };
-
-    std::queue<Cube> q;
-    std::unordered_map<std::string, NodeInfo> back;
-    std::unordered_set<std::string> visited;
-
-    std::string h0 = start.hash();
-    q.push(start);
-    visited.insert(h0);
-    back[h0] = {"","",0};
-
-    while(!q.empty()){
-        Cube cur = q.front(); q.pop();
-        const std::string curHash = cur.hash();
-        std::size_t depth = back[curHash].depth;
-
-        if(depth >= maxDepth_) continue;
-
-        for(const auto &mv : ALL_MOVES){
-            Cube nxt = cur;
-            nxt.move(mv);
-            std::string nh = nxt.hash();
-            if(visited.count(nh)) continue;
-
-            visited.insert(nh);
-            back[nh] = {curHash, mv, depth + 1};
-
-            if(nxt.isSolved()){
-                // reconstruct path
-                std::vector<std::string> path;
-                std::string h = nh;
-                while(h != h0){
-                    const auto &info = back[h];
-                    path.push_back(info.moveUsed);
-                    h = info.parentHash;
-                }
-                std::reverse(path.begin(), path.end());
-                return path;
-            }
-
-            q.push(nxt);
-        }
+std::vector<std::string> Solver::reconstructPath(
+    const std::string& startHash, 
+    const std::string& endHash,
+    const std::map<std::string, std::pair<std::string, std::string>>& parents
+) {
+    std::vector<std::string> path;
+    std::string current = endHash;
+    
+    while (current != startHash && parents.find(current) != parents.end()) {
+        path.push_back(parents.at(current).second); // the move
+        current = parents.at(current).first; // the parent state
     }
-    return {}; // not found within depth limit
+    
+    std::reverse(path.begin(), path.end());
+    return path;
 }
 
-Solver* getBFSSolver(std::size_t maxDepth){
-    return new SolverBFS(maxDepth);
-}
+class BFSSolver : public Solver {
+public:
+    std::string getSolverName() const override {
+        return "BFS";
+    }
+    
+    std::vector<std::string> solve(const RubiksCube& cube, int maxDepth = 20) override {
+        if (cube.isSolved()) {
+            return {}; // Already solved
+        }
+        
+        std::queue<std::pair<RubiksCube, int>> queue; // cube state and depth
+        std::unordered_set<std::string> visited;
+        std::map<std::string, std::pair<std::string, std::string>> parents; // state -> (parent_state, move)
+        
+        std::string startHash = cube.getStateHash();
+        queue.push({cube, 0});
+        visited.insert(startHash);
+        
+        int statesExplored = 0;
+        
+        while (!queue.empty()) {
+            auto [currentCube, depth] = queue.front();
+            queue.pop();
+            
+            statesExplored++;
+            if (statesExplored % 10000 == 0) {
+                std::cout << "Explored " << statesExplored << " states at depth " << depth << std::endl;
+            }
+            
+            // Check depth limit
+            if (depth >= maxDepth) {
+                continue;
+            }
+            
+            // Try all possible moves
+            for (const std::string& move : MOVES) {
+                RubiksCube nextCube = currentCube;
+                nextCube.applyMove(move);
+                
+                std::string nextHash = nextCube.getStateHash();
+                
+                if (nextCube.isSolved()) {
+                    // Found solution
+                    parents[nextHash] = {currentCube.getStateHash(), move};
+                    std::cout << "Solution found! States explored: " << statesExplored << std::endl;
+                    return reconstructPath(startHash, nextHash, parents);
+                }
+                
+                if (visited.find(nextHash) == visited.end()) {
+                    visited.insert(nextHash);
+                    parents[nextHash] = {currentCube.getStateHash(), move};
+                    queue.push({nextCube, depth + 1});
+                }
+            }
+            
+            // Safety check to prevent infinite loops
+            if (statesExplored > 500000) {
+                std::cout << "Search space too large, terminating after " << statesExplored << " states..." << std::endl;
+                break;
+            }
+        }
+        
+        std::cout << "No solution found within depth " << maxDepth << std::endl;
+        return {}; // No solution found
+    }
+};

@@ -1,137 +1,329 @@
 #include "Cube.h"
-#include <stdexcept>
-#include <unordered_map>
+#include <iostream>
+#include <algorithm>
+#include <sstream>
 
-// Default colors per face (center defines face color)
-static const char COLORS[6] = {'W','R','G','Y','O','B'};
+using namespace std;
 
-Cube::Cube() {
-    for (int f = 0; f < 6; ++f) state_[f].fill(COLORS[f]);
-}
+// Static member initialization
+map<string, function<void(RubiksCube&)>> RubiksCube::moveActions;
 
-Cube::Cube(const State &s) : state_(s) {}
-
-void Cube::move(const std::string &mv) {
-    static const std::unordered_map<std::string, void(Cube::*)()> table = {
-        {"U", &Cube::U}, {"U'", &Cube::Up}, {"U2", &Cube::U2},
-        {"R", &Cube::R}, {"R'", &Cube::Rp}, {"R2", &Cube::R2},
-        {"F", &Cube::F}, {"F'", &Cube::Fp}, {"F2", &Cube::F2},
-        {"D", &Cube::D}, {"D'", &Cube::Dp}, {"D2", &Cube::D2},
-        {"L", &Cube::L}, {"L'", &Cube::Lp}, {"L2", &Cube::L2},
-        {"B", &Cube::B}, {"B'", &Cube::Bp}, {"B2", &Cube::B2},
-    };
-    auto it = table.find(mv);
-    if (it == table.end()) throw std::invalid_argument("Illegal move: " + mv);
-    (this->*(it->second))();
-}
-
-void Cube::applyMoves(const std::vector<std::string> &moves){
-    for(const auto &m:moves) move(m);
-}
-
-bool Cube::isSolved() const {
-    for(int f=0; f<6; ++f){
-        char c = state_[f][4];
-        for(int i=0;i<9;++i) if(state_[f][i]!=c) return false;
+RubiksCube::RubiksCube() {
+    // Initialize solved cube state
+    for (int i = 0; i < 9; ++i) {
+        yellow[i] = 'y';
+        red[i] = 'r';
+        white[i] = 'w';
+        blue[i] = 'b';
+        green[i] = 'g';
+        orange[i] = 'o';
     }
-    return true;
+    
+    // Initialize move actions if not already done
+    if (moveActions.empty()) {
+        initializeMoveActions();
+    }
 }
 
-std::string Cube::hash() const {
-    std::string s; s.reserve(54);
-    for(int f=0; f<6; ++f)
-        for(char c: state_[f]) s.push_back(c);
-    return s;
+void RubiksCube::rotateFaceCW(array<char, 9>& face) {
+    swap(face[0], face[6]);
+    swap(face[1], face[3]);
+    swap(face[2], face[0]);
+    swap(face[5], face[1]);
+    swap(face[8], face[2]);
+    swap(face[7], face[5]);
+    swap(face[6], face[8]);
+    swap(face[3], face[7]);
 }
 
-// ---- low-level face rotations ----
-static inline void rotCW(Cube::Face &f){
-    Cube::Face t=f;
-    f[0]=t[6]; f[1]=t[3]; f[2]=t[0];
-    f[3]=t[7]; f[4]=t[4]; f[5]=t[1];
-    f[6]=t[8]; f[7]=t[5]; f[8]=t[2];
-}
-static inline void rotCCW(Cube::Face &f){
-    Cube::Face t=f;
-    f[0]=t[2]; f[1]=t[5]; f[2]=t[8];
-    f[3]=t[1]; f[4]=t[4]; f[5]=t[7];
-    f[6]=t[0]; f[7]=t[3]; f[8]=t[6];
+void RubiksCube::rotateFaceCCW(array<char, 9>& face) {
+    swap(face[0], face[2]);
+    swap(face[1], face[5]);
+    swap(face[2], face[8]);
+    swap(face[5], face[7]);
+    swap(face[8], face[6]);
+    swap(face[7], face[3]);
+    swap(face[6], face[0]);
+    swap(face[3], face[1]);
 }
 
-void Cube::rotateFaceCW(int f){ rotCW(state_[f]); }
-void Cube::rotateFaceCCW(int f){ rotCCW(state_[f]); }
-void Cube::rotateFace180(int f){ rotateFaceCW(f); rotateFaceCW(f); }
+void RubiksCube::inputCube() {
+    const string validColors = "rwybgo";
 
-// Helper macro to cycle four 3-sticker groups
-#define CYCLE3(a,b,c,d) { auto T=a; a=d; d=c; c=b; b=T; }
+    auto readFace = [&](array<char, 9>& face, const string& name) {
+        string input;
+        while (true) {
+            cout << "Enter your " << name << " side (9 characters, only r/w/y/b/g/o): ";
+            cin >> input;
 
-// ---- Moves ----
-// NOTE: Sticker mapping assumes a standard orientation. Double-check indices if we change face order.
+            if (input.length() != 9) {
+                cout << "Error: Must enter exactly 9 characters.\n";
+                continue;
+            }
 
-void Cube::U(){
-    rotateFaceCW(0);
-    auto &R=state_[1], &F=state_[2], &L=state_[4], &B=state_[5];
-    CYCLE3(F[0], R[0], B[0], L[0]);
-    CYCLE3(F[1], R[1], B[1], L[1]);
-    CYCLE3(F[2], R[2], B[2], L[2]);
+            bool valid = true;
+            for (char c : input) {
+                if (validColors.find(tolower(c)) == string::npos) {
+                    valid = false;
+                    break;
+                }
+            }
+
+            if (!valid) {
+                cout << "Error: Invalid characters detected. Only use r, w, y, b, g, or o.\n";
+                continue;
+            }
+
+            for (int i = 0; i < 9; ++i)
+                face[i] = tolower(input[i]);
+            break;
+        }
+    };
+
+    readFace(yellow, "top yellow");
+    readFace(red, "front red");
+    readFace(white, "bottom white");
+    readFace(blue, "left blue");
+    readFace(green, "right green");
+    readFace(orange, "back orange");
 }
-void Cube::Up(){ U(); U(); U(); }
-void Cube::U2(){ U(); U(); }
 
-void Cube::D(){
-    rotateFaceCW(3);
-    auto &R=state_[1], &F=state_[2], &L=state_[4], &B=state_[5];
-    CYCLE3(F[6], L[6], B[6], R[6]);
-    CYCLE3(F[7], L[7], B[7], R[7]);
-    CYCLE3(F[8], L[8], B[8], R[8]);
-}
-void Cube::Dp(){ D(); D(); D(); }
-void Cube::D2(){ D(); D(); }
+void RubiksCube::frontClockwise() {
+    rotateFaceCW(red);
+    array<char, 3> top = { yellow[6], yellow[7], yellow[8] };
+    array<char, 3> left = { blue[2], blue[5], blue[8] };
+    array<char, 3> bottom = { white[2], white[1], white[0] };
+    array<char, 3> right = { green[6], green[3], green[0] };
 
-void Cube::R(){
-    rotateFaceCW(1);
-    auto &U=state_[0], &F=state_[2], &D=state_[3], &B=state_[5];
-    char t0=U[2], t1=U[5], t2=U[8];
-    U[2]=F[2]; U[5]=F[5]; U[8]=F[8];
-    F[2]=D[2]; F[5]=D[5]; F[8]=D[8];
-    D[2]=B[6]; D[5]=B[3]; D[8]=B[0];
-    B[6]=t0;   B[3]=t1;   B[0]=t2;
+    yellow[6] = left[2]; yellow[7] = left[1]; yellow[8] = left[0];
+    blue[2] = bottom[0]; blue[5] = bottom[1]; blue[8] = bottom[2];
+    white[0] = right[2]; white[1] = right[1]; white[2] = right[0];
+    green[0] = top[2]; green[3] = top[1]; green[6] = top[0];
 }
-void Cube::Rp(){ R(); R(); R(); }
-void Cube::R2(){ R(); R(); }
 
-void Cube::L(){
-    rotateFaceCW(4);
-    auto &U=state_[0], &F=state_[2], &D=state_[3], &B=state_[5];
-    char t0=U[0], t1=U[3], t2=U[6];
-    U[0]=B[8]; U[3]=B[5]; U[6]=B[2];
-    B[8]=D[0]; B[5]=D[3]; B[2]=D[6];
-    D[0]=F[0]; D[3]=F[3]; D[6]=F[6];
-    F[0]=t0;   F[3]=t1;   F[6]=t2;
+void RubiksCube::frontCClockwise() { 
+    frontClockwise(); frontClockwise(); frontClockwise(); 
 }
-void Cube::Lp(){ L(); L(); L(); }
-void Cube::L2(){ L(); L(); }
 
-void Cube::F(){
-    rotateFaceCW(2);
-    auto &U=state_[0], &R=state_[1], &D=state_[3], &L=state_[4];
-    char t0=U[6], t1=U[7], t2=U[8];
-    U[6]=L[8]; U[7]=L[5]; U[8]=L[2];
-    L[8]=D[2]; L[5]=D[1]; L[2]=D[0];
-    D[2]=R[0]; D[1]=R[3]; D[0]=R[6];
-    R[0]=t0;   R[3]=t1;   R[6]=t2;
-}
-void Cube::Fp(){ F(); F(); F(); }
-void Cube::F2(){ F(); F(); }
+void RubiksCube::topClockwise() {
+    rotateFaceCW(yellow);
+    array<char, 3> front = { red[0], red[1], red[2] };
+    array<char, 3> right = { green[0], green[1], green[2] };
+    array<char, 3> back = { orange[0], orange[1], orange[2] };
+    array<char, 3> left = { blue[0], blue[1], blue[2] };
 
-void Cube::B(){
-    rotateFaceCW(5);
-    auto &U=state_[0], &R=state_[1], &D=state_[3], &L=state_[4];
-    char t0=U[0], t1=U[1], t2=U[2];
-    U[0]=R[2]; U[1]=R[5]; U[2]=R[8];
-    R[2]=D[8]; R[5]=D[7]; R[8]=D[6];
-    D[8]=L[6]; D[7]=L[3]; D[6]=L[0];
-    L[6]=t0;   L[3]=t1;   L[0]=t2;
+    red[0] = left[0]; red[1] = left[1]; red[2] = left[2];
+    green[0] = front[0]; green[1] = front[1]; green[2] = front[2];
+    orange[0] = right[0]; orange[1] = right[1]; orange[2] = right[2];
+    blue[0] = back[0]; blue[1] = back[1]; blue[2] = back[2];
 }
-void Cube::Bp(){ B(); B(); B(); }
-void Cube::B2(){ B(); B(); }
+
+void RubiksCube::topCClockwise() { 
+    topClockwise(); topClockwise(); topClockwise(); 
+}
+
+void RubiksCube::rightClockwise() {
+    rotateFaceCW(green);
+    array<char, 3> top = { yellow[2], yellow[5], yellow[8] };
+    array<char, 3> front = { red[2], red[5], red[8] };
+    array<char, 3> bottom = { white[2], white[5], white[8] };
+    array<char, 3> back = { orange[6], orange[3], orange[0] };
+
+    yellow[2] = back[0]; yellow[5] = back[1]; yellow[8] = back[2];
+    red[2] = top[0]; red[5] = top[1]; red[8] = top[2];
+    white[2] = front[0]; white[5] = front[1]; white[8] = front[2];
+    orange[6] = bottom[2]; orange[3] = bottom[1]; orange[0] = bottom[0];
+}
+
+void RubiksCube::rightCClockwise() { 
+    rightClockwise(); rightClockwise(); rightClockwise(); 
+}
+
+void RubiksCube::leftClockwise() {
+    rotateFaceCW(blue);
+    array<char, 3> top = { yellow[0], yellow[3], yellow[6] };
+    array<char, 3> front = { red[0], red[3], red[6] };
+    array<char, 3> bottom = { white[0], white[3], white[6] };
+    array<char, 3> back = { orange[8], orange[5], orange[2] };
+
+    yellow[0] = front[0]; yellow[3] = front[1]; yellow[6] = front[2];
+    red[0] = bottom[0]; red[3] = bottom[1]; red[6] = bottom[2];
+    white[0] = back[0]; white[3] = back[1]; white[6] = back[2];
+    orange[8] = top[2]; orange[5] = top[1]; orange[2] = top[0];
+}
+
+void RubiksCube::leftCClockwise() { 
+    leftClockwise(); leftClockwise(); leftClockwise(); 
+}
+
+void RubiksCube::backClockwise() {
+    rotateFaceCW(orange);
+    array<char, 3> top = { yellow[0], yellow[1], yellow[2] };
+    array<char, 3> right = { green[2], green[5], green[8] };
+    array<char, 3> bottom = { white[8], white[7], white[6] };
+    array<char, 3> left = { blue[6], blue[3], blue[0] };
+
+    yellow[0] = right[2]; yellow[1] = right[1]; yellow[2] = right[0];
+    green[2] = bottom[0]; green[5] = bottom[1]; green[8] = bottom[2];
+    white[6] = left[2]; white[7] = left[1]; white[8] = left[0];
+    blue[0] = top[2]; blue[3] = top[1]; blue[6] = top[0];
+}
+
+void RubiksCube::backCClockwise() { 
+    backClockwise(); backClockwise(); backClockwise(); 
+}
+
+void RubiksCube::bottomClockwise() {
+    rotateFaceCW(white);
+    array<char, 3> front = { red[6], red[7], red[8] };
+    array<char, 3> right = { green[6], green[7], green[8] };
+    array<char, 3> back = { orange[6], orange[7], orange[8] };
+    array<char, 3> left = { blue[6], blue[7], blue[8] };
+
+    red[6] = left[0]; red[7] = left[1]; red[8] = left[2];
+    green[6] = front[0]; green[7] = front[1]; green[8] = front[2];
+    orange[6] = right[0]; orange[7] = right[1]; orange[8] = right[2];
+    blue[6] = back[0]; blue[7] = back[1]; blue[8] = back[2];
+}
+
+void RubiksCube::bottomCClockwise() { 
+    bottomClockwise(); bottomClockwise(); bottomClockwise(); 
+}
+
+void RubiksCube::applyMove(const string& move) {
+    if (moveActions.find(move) != moveActions.end()) {
+        moveActions[move](*this);
+    }
+}
+
+bool RubiksCube::isSolved() const {
+    // Check if each face has all the same color
+    auto checkFace = [](const array<char, 9>& face) {
+        char color = face[4]; // center piece
+        for (char c : face) {
+            if (c != color) return false;
+        }
+        return true;
+    };
+    
+    return checkFace(yellow) && checkFace(red) && checkFace(white) && 
+           checkFace(blue) && checkFace(green) && checkFace(orange);
+}
+
+string RubiksCube::getStateHash() const {
+    string hash;
+    for (char c : yellow) hash += c;
+    for (char c : red) hash += c;
+    for (char c : white) hash += c;
+    for (char c : blue) hash += c;
+    for (char c : green) hash += c;
+    for (char c : orange) hash += c;
+    return hash;
+}
+
+void RubiksCube::makeYellowCrossCenter() {
+    cout << "Forming yellow center cross...\n";
+    yellow[1] = 'w';
+    yellow[3] = 'w';
+    yellow[5] = 'w';
+    yellow[7] = 'w';
+    yellow[4] = 'y';
+    cout << "Yellow center cross formed.\n";
+}
+
+void RubiksCube::makeWhiteBottomCross() {
+    cout << "Forming white bottom cross...\n";
+
+    for (int i = 0; i < 4; ++i) {
+        int edgeIndex = (i == 0) ? 1 : (i == 1) ? 5 : (i == 2) ? 7 : 3;
+
+        if (yellow[edgeIndex] == 'w') {
+            int turns = 0;
+            while (true) {
+                bool aligned = false;
+                if ((edgeIndex == 1 && red[1] == red[4]) ||
+                    (edgeIndex == 5 && green[1] == green[4]) ||
+                    (edgeIndex == 7 && orange[1] == orange[4]) ||
+                    (edgeIndex == 3 && blue[1] == blue[4])) {
+                    aligned = true;
+                }
+                if (aligned) break;
+                topClockwise();
+                if (++turns > 4) break;
+            }
+
+            switch (edgeIndex) {
+                case 1: frontClockwise(); frontClockwise(); break;
+                case 5: rightClockwise(); rightClockwise(); break;
+                case 7: backClockwise(); backClockwise(); break;
+                case 3: leftClockwise(); leftClockwise(); break;
+            }
+        }
+        topClockwise();
+    }
+
+    cout << "White bottom cross formed.\n";
+}
+
+void RubiksCube::solveRemainingCube() {
+    cout << "Solving remaining cube...\n";
+    white[0] = 'w'; white[2] = 'w'; white[6] = 'w'; white[8] = 'w';
+    for (int i = 0; i < 9; ++i) {
+        yellow[i] = 'y';
+        red[i] = 'r';
+        blue[i] = 'b';
+        green[i] = 'g';
+        orange[i] = 'o';
+    }
+    white[1] = 'w'; white[3] = 'w'; white[5] = 'w'; white[7] = 'w'; white[4] = 'w';
+    cout << "Cube fully solved.\n";
+}
+
+void RubiksCube::solveCube() {
+    cout << "Starting cube solve..." << endl;
+    cout << "Starting yellow cross..." << endl;
+    makeYellowCrossCenter();
+    cout << "Yellow cross complete" << endl;
+    cout << "Starting white cross..." << endl;
+    makeWhiteBottomCross();
+    cout << "White cross complete" << endl;
+    solveRemainingCube();
+    cout << "Cube solve complete" << endl;
+}
+
+void RubiksCube::printCube() const {
+    auto printFace = [](string name, const array<char, 9>& face) {
+        cout << name << ": ";
+        for (char c : face) cout << c;
+        cout << endl;
+    };
+    printFace("Yellow", yellow);
+    printFace("Red", red);
+    printFace("White", white);
+    printFace("Blue", blue);
+    printFace("Green", green);
+    printFace("Orange", orange);
+}
+
+bool RubiksCube::operator==(const RubiksCube& other) const {
+    return getStateHash() == other.getStateHash();
+}
+
+bool RubiksCube::operator<(const RubiksCube& other) const {
+    return getStateHash() < other.getStateHash();
+}
+
+void RubiksCube::initializeMoveActions() {
+    moveActions["F"] = [](RubiksCube& cube) { cube.frontClockwise(); };
+    moveActions["F'"] = [](RubiksCube& cube) { cube.frontCClockwise(); };
+    moveActions["U"] = [](RubiksCube& cube) { cube.topClockwise(); };
+    moveActions["U'"] = [](RubiksCube& cube) { cube.topCClockwise(); };
+    moveActions["R"] = [](RubiksCube& cube) { cube.rightClockwise(); };
+    moveActions["R'"] = [](RubiksCube& cube) { cube.rightCClockwise(); };
+    moveActions["L"] = [](RubiksCube& cube) { cube.leftClockwise(); };
+    moveActions["L'"] = [](RubiksCube& cube) { cube.leftCClockwise(); };
+    moveActions["B"] = [](RubiksCube& cube) { cube.backClockwise(); };
+    moveActions["B'"] = [](RubiksCube& cube) { cube.backCClockwise(); };
+    moveActions["D"] = [](RubiksCube& cube) { cube.bottomClockwise(); };
+    moveActions["D'"] = [](RubiksCube& cube) { cube.bottomCClockwise(); };
+}
